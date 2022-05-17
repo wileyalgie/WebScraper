@@ -1,8 +1,3 @@
-import requests
-import csv
-from bs4 import BeautifulSoup
-import helper as h
-import pandas as pd
 import vistaService as vista
 
 # google url
