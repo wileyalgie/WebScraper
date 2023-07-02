@@ -3,8 +3,10 @@ from bs4 import BeautifulSoup
 import helper as h
 import pandas as pd
 
-list_view = ['Id','Lot','Title', 'Retail_Price','Condition', 'Current_Price']
-grid_view = ['Id','Lot','Title', 'Sold_Date','Sold_Time', 'Sold_Price']
+list_view_columns = ['Id','Lot','Title','Condition','Retail_Price','Current_Price','Estimated End Time']
+grid_view_columns = ['Id','Lot','Title','Sold_Date','Sold_Time','Sold_Price']
+
+curated_view_columns = ['Id','Lot','Title','Condition','Retail_Price','Sold_Price','Sold_Date','Sold_Time']
 
 def get_additional_pages(response):
     soup = BeautifulSoup(response, "html.parser")
@@ -23,7 +25,6 @@ def get_additional_pages(response):
         results = h.createList(1,last_num)
 
     return results
-
 
 def get_completed_list_view_df(search):
     url = h.get_vista_url(search,'list','completed_only')
@@ -44,8 +45,9 @@ def get_completed_list_view_df(search):
 
     df = pd.DataFrame(rows)
 
-    df.columns = [list_view]
+    df.columns = list_view_columns
 
+    print("Completed List View: ", df.shape[0])
     return df
 
 def get_completed_grid_view_df(search):
@@ -55,12 +57,21 @@ def get_completed_grid_view_df(search):
     soup = BeautifulSoup(response.text, "html.parser")
     items = soup.find_all(class_='galleryUnit')
 
+    additional_pages = get_additional_pages(response.text)
+    if len(additional_pages) > 0:
+        for page_num in additional_pages:
+            url = h.get_vista_url(search,'grid','completed_only',page_num)
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, "html.parser")
+            items = items + soup.find_all(class_='galleryUnit')
+
     rows = h.get_grid_view_list_of_rows(items)
 
     df = pd.DataFrame(rows)
 
-    df.columns = [grid_view]
+    df.columns = grid_view_columns
 
+    print("Completed Grid View: ", df.shape[0])
     return df
 
 def get_active_search_list(search):
@@ -72,24 +83,21 @@ def get_active_search_list(search):
 
     list_view_of_rows = h.get_list_view_list_of_rows(sections)
 
-    list_df = pd.DataFrame(list_view_of_rows)
+    df = pd.DataFrame(list_view_of_rows)
 
-    list_df.columns = [list_view]
+    df.columns = list_view_columns
 
-    return list_df
-
+    print("Active Grid View: ", df.shape[0])
+    return df
 
 def get_completed_search_list(search):
     list_df = get_completed_list_view_df(search)
     grid_df = get_completed_grid_view_df(search)
 
-    df = list_df.set_index('Id').join(grid_df.set_index('Id'), lsuffix='_list')
+    df = list_df.join(grid_df.set_index('Id'), on="Id", rsuffix='_grid')
 
+    df = df[curated_view_columns]
+    df = df.astype({'Retail_Price':float,'Sold_Price':float})
+
+    print("Completed Merged Search List: ", df.shape[0])
     return df
-
-
-
-
-
-
-

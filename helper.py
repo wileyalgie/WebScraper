@@ -23,6 +23,7 @@ def get_title_dict(title_element):
 
     if title_element is None:
         return dict
+
     cleaned_title = title_element.find('a').text.strip().split('\r\n')
     dict['lot'] = cleaned_title[0].strip().replace(' -', '')
     dict['title'] = cleaned_title[1].strip()
@@ -36,6 +37,7 @@ def get_grid_title_dict(title_element):
 
     if title_element is None:
         return dict
+
     cleaned_title = title_element.find('a').text.strip().split('\r\n')
     dict['lot'] = cleaned_title[0].strip().replace(' -', '')
     dict['title'] = cleaned_title[1].strip()
@@ -52,6 +54,11 @@ def get_subtitle_dict(subtitle_element):
 
     cleaned_subtitle = subtitle_element.find('a').text.strip().split('-')
     dict['retail_price'] = cleaned_subtitle[0].strip().replace('Retail Price: ', '')
+    dict['retail_price'] = dict['retail_price'].replace('MSRP: ', '')
+    dict['retail_price'] = dict['retail_price'].replace('MSRP ', '')
+    dict['retail_price'] = dict['retail_price'].replace('$', '')
+    if dict['retail_price'] is '': dict['retail_price'] = None
+
     del cleaned_subtitle[0]
 
     dict['condition'] = ' '.join(cleaned_subtitle).strip()
@@ -66,6 +73,29 @@ def get_current_price_dict(current_price_element):
         return dict
 
     dict['current_price'] = current_price_element.find(class_="NumberPart").text
+    return dict
+
+def get_estimated_end_time_dict(estimated_end_time_element):
+    dict = {
+        "estimated_end_time":None
+    }
+
+    if estimated_end_time_element is None:
+        return dict
+
+    dict['estimated_end_time'] = estimated_end_time_element.find("span")['data-action-time']
+
+    # initializing format
+    format_12_hour = "%Y/%m/%d %I:%M:%S %p"
+    format_24_hour = "%Y/%m/%d %H:%M:%S %p"
+
+    # using try-except to check for truth value
+    try:
+        date = parser.parse(dict['estimated_end_time'])
+        dict['estimated_end_time'] = date.strftime(format_12_hour)
+    except ValueError:
+        dict['estimated_end_time'] = None
+
     return dict
 
 def get_date_sold_dict(date_element):
@@ -100,15 +130,18 @@ def get_list_view_list_of_rows(sections):
         condition = subtitle_dict['condition']
 
         current_price_dict = get_current_price_dict(section.find(class_="awe-rt-CurrentPrice"))
-        currentPrice = current_price_dict['current_price']
-        
+        current_price = current_price_dict['current_price']
+
+        estimated_end_time_dict = get_estimated_end_time_dict(section.find(class_="time"))
+        estimated_end_time = estimated_end_time_dict['estimated_end_time']
         
         list_of_cells.append(id)
         list_of_cells.append(lot)
         list_of_cells.append(title)
-        list_of_cells.append(retail_price)
         list_of_cells.append(condition)
-        list_of_cells.append(currentPrice)
+        list_of_cells.append(retail_price)
+        list_of_cells.append(current_price)
+        list_of_cells.append(estimated_end_time)
         list_of_rows.append(list_of_cells)
     
     return list_of_rows
@@ -155,4 +188,3 @@ def write_active_list(items):
     writer = csv.writer(outfile)
     writer.writerow(["Title", "Retail Price", "Condition", "CurrentPrice"])
     writer.writerows(items)
-
